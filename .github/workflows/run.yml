@@ -1,0 +1,51 @@
+name: colab backend
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: ubuntu-18.04
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v2
+    
+    - uses: pat-s/always-upload-cache@v2
+      id: cache-pre-commit-dependencies
+      name: "CACHE: pip and pre-commit dependencies"
+      with:
+        path: |
+          ~/.cache/pre-commit
+          ~/.cache/pip
+        key: ${{ runner.os }}-pip-pre-commit-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-pip-pre-commit-
+    
+    - name: Initialing environment
+      run: |
+        pip3 install wheel
+        sudo apt-get -y install python3-setuptools
+        pip3 install ipython psutil pathlib
+    
+    - name: go-http-file-server
+      run: sudo python3 ./res/actionUtility.py ghfs -nt
+    
+    - name: wetty
+      run: sudo python3 ./res/actionUtility.py wetty >/dev/null 2>&1
+    
+    - name: 1717 forwarding 
+      run: sudo python3 ./res/actionUtility.py -cpf 'name ghfs' 'PORT_FORWARD ngrok' 'protocol http' 'port 1717' 'portAcc 4171' 'USE_FREE_TOKEN 0' 'TOKEN ${{ secrets.NGROK_AUTH_TOKEN_DEC }}'
+    
+    - name: 8081 forwarding
+      run: sudo python3 ./res/actionUtility.py -cpf
+      
+    - name: Docker run
+      run: |
+        docker run \
+        -p 8081:8081 \
+        -e DEBIAN_FRONTEND=noninteractive \
+        -v "/home/runner/content":"/content/downloads" \
+        -v "/mnt":"/mnt" \
+        -v "/var/run/dbus/system_bus_socket":"/var/run/dbus/system_bus_socket" \
+        --privileged \
+        --log-driver=none -a stdin -a stdout -a stderr \
+        biplobsd/docker-colab-local:latest
